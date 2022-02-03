@@ -135,7 +135,7 @@ contract MasterChef is Ownable {
             safeLootTransfer(msg.sender, pending);
         }
 
-        for (uint256 i = 0; i < amount; i++) {
+        for (uint256 i = 0; i < amount; ++i) {
             uint256 tokenId = _tokenIds[i];
 
             ownedTokens[nextTokenIndex] = tokenId;
@@ -182,7 +182,7 @@ contract MasterChef is Ownable {
         uint256 tokenIndex;
 
         // what would happen if I try to withdraw tokenId 0 if I don't own it
-        for (uint256 i = 0; i < amount; i++) {
+        for (uint256 i = 0; i < amount; ++i) {
             tokenId = _tokenIds[i];
             tokenIndex = ownedTokensIndex[tokenId];
             require(
@@ -202,7 +202,7 @@ contract MasterChef is Ownable {
             safeLootTransfer(msg.sender, pending);
         }
 
-        for (uint256 i = 0; i < amount; i++) {
+        for (uint256 i = 0; i < amount; ++i) {
             tokenId = _tokenIds[i];
             tokenIndex = ownedTokensIndex[tokenId];
 
@@ -215,7 +215,11 @@ contract MasterChef is Ownable {
 
             delete ownedTokensIndex[tokenId];
             delete ownedTokens[lastTokenIndex];
-            lastTokenIndex--;
+
+            // Check to avoid underflow
+            if (lastTokenIndex > 0) {
+                lastTokenIndex--;
+            }
 
             pool.nftToken.safeTransferFrom(address(this), address(msg.sender), tokenId);
         }
@@ -232,7 +236,7 @@ contract MasterChef is Ownable {
         user = userInfo[_pid][msg.sender];
         pool = poolInfo[_pid];
 
-        require(user.amount > 0, "harvest: you ain't got nothing son");
+        require(user.amount > 0, "harvest: not good");
 
         updatePool(_pid);
 
@@ -372,7 +376,7 @@ contract MasterChef is Ownable {
 
     function checkForDuplicate(IERC721 _nftToken) private view {
         uint256 length = poolInfo.length;
-        for (uint256 _pid = 0; _pid < length; _pid++) {
+        for (uint256 _pid = 0; _pid < length; ++_pid) {
             require(poolInfo[_pid].nftToken != _nftToken, "add: pool already exists!!!!");
         }
 
@@ -384,13 +388,12 @@ contract MasterChef is Ownable {
         UserInfo storage user = userInfo[_pid][msg.sender];
         mapping(uint256 => uint256) storage ownedTokens = user.ownedTokens;
         mapping(uint256 => uint256) storage ownedTokensIndex = user.ownedTokensIndex;
-        uint256 lastTokenIndex = user.amount - 1;
 
         uint oldUserAmount = user.amount;
         user.amount = 0;
         user.rewardDebt = 0;
 
-        for (uint256 i = 0; i < oldUserAmount; i++) {
+        for (uint256 i = 0; i < oldUserAmount; ++i) {
             uint256 tokenId = ownedTokens[i];
             delete ownedTokensIndex[tokenId];
             delete ownedTokens[i];
