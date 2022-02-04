@@ -9,10 +9,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Loot.sol";
 
 // The FTL MasterChef is a fork of MasterChef by SushiSwap
-// The biggest change made is using per second instead of per block for rewards
+// There are 2 big changes made: 
+// 1. Using per second instead of per block for rewards
 // This is due to Fantoms extremely inconsistent block times
-// The other biggest change was the removal of the migration functions
-//
+// 2. Using ERC-721 tokens instead of ERC-20
+// For storing and retrieving these ERC-721 some changes had to be made
+// which are inspired by Openzeppelin's ERC721Enumerable.sol
+// Another change was the removal of the migration functions
 // Note that it's ownable and the owner wields tremendous power. The ownership
 // will be transferred to a governance smart contract once c is sufficiently
 // distributed and the community can show to govern itself.
@@ -24,10 +27,14 @@ contract MasterChef is Ownable {
 
     // Info of each user.
     struct UserInfo {
+        // Mapping storing the user's owned tokens based on index
         mapping(uint256 => uint256) ownedTokens;
+        // Mapping storing the indexes of the user's tokens
         mapping(uint256 => uint256) ownedTokensIndex;
-        uint256 amount;     // How many ERC-721 tokens the user has provided.
-        uint256 rewardDebt; // Reward debt. See explanation below.
+        // How many ERC-721 tokens the user has provided
+        uint256 amount;
+        // Reward debt. See explanation below
+        uint256 rewardDebt;
         //
         // We do some fancy math here. Basically, any point in time, the amount of LOOT
         // entitled to a user but is pending to be distributed is:
@@ -43,8 +50,8 @@ contract MasterChef is Ownable {
 
     // Info of each pool.
     struct PoolInfo {
-        IERC721 nftToken;           // Address of NFT token contract.
-        uint256 allocPoint;       // How many allocation points assigned to this pool. LOOTs to distribute per block.
+        IERC721 nftToken;        // Address of NFT token contract.
+        uint256 allocPoint;      // How many allocation points assigned to this pool. LOOTs to distribute per block.
         uint256 lastRewardTime;  // Last block time that LOOTs distribution occurs.
         uint256 accLootPerShare; // Accumulated LOOTs per share, times 1e12. See below.
     }
@@ -84,38 +91,7 @@ contract MasterChef is Ownable {
         endTime = _endTime;
     }
 
-    function tokenOfOwnerByIndex(uint256 _pid, address owner, uint256 index)
-        external
-        view
-        returns (uint256)
-    {
-        UserInfo storage user = userInfo[_pid][owner];
-
-        require(index < user.amount, "MasterChef: owner index out of bounds");
-        return user.ownedTokens[index];
-    }
-
     // Deposit ERC-721 tokens to MasterChef for LOOT allocation.
-    //function deposit(uint256 _pid, uint256 _amount) public {
-        //PoolInfo storage pool = poolInfo[_pid];
-        //UserInfo storage user = userInfo[_pid][msg.sender];
-
-        //updatePool(_pid);
-
-        //uint256 pending = user.amount.mul(pool.accLootPerShare).div(1e12).sub(user.rewardDebt);
-
-        //user.amount = user.amount.add(_amount);
-        //user.rewardDebt = user.amount.mul(pool.accLootPerShare).div(1e12);
-
-        //if(pending > 0) {
-            //safeLootTransfer(msg.sender, pending);
-        //}
-        //pool.nftToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-
-        //emit Deposit(msg.sender, _pid, _amount);
-    //}
-
-    // New implementation! Deposit ERC-721 tokens to MasterChef for LOOT allocation.
     function deposit(uint256 _pid, uint256[] calldata _tokenIds) external {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -149,28 +125,6 @@ contract MasterChef is Ownable {
     }
 
     // Withdraw ERC-721 tokens from MasterChef.
-    //function withdraw(uint256 _pid, uint256 _amount) public {  
-        //PoolInfo storage pool = poolInfo[_pid];
-        //UserInfo storage user = userInfo[_pid][msg.sender];
-
-        //require(user.amount >= _amount, "withdraw: not good");
-
-        //updatePool(_pid);
-
-        //uint256 pending = user.amount.mul(pool.accLootPerShare).div(1e12).sub(user.rewardDebt);
-
-        //user.amount = user.amount.sub(_amount);
-        //user.rewardDebt = user.amount.mul(pool.accLootPerShare).div(1e12);
-
-        //if(pending > 0) {
-            //safeLootTransfer(msg.sender, pending);
-        //}
-        //pool.nftToken.safeTransfer(address(msg.sender), _amount);
-        
-        //emit Withdraw(msg.sender, _pid, _amount);
-    //}
-
-    // Withdraw ERC-721 tokens from MasterChef.
     function withdraw(uint256 _pid, uint256[] calldata _tokenIds) external {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -181,7 +135,6 @@ contract MasterChef is Ownable {
         uint256 tokenId;
         uint256 tokenIndex;
 
-        // what would happen if I try to withdraw tokenId 0 if I don't own it
         for (uint256 i = 0; i < amount; ++i) {
             tokenId = _tokenIds[i];
             tokenIndex = ownedTokensIndex[tokenId];
@@ -227,6 +180,7 @@ contract MasterChef is Ownable {
         emit Withdraw(msg.sender, _pid, _tokenIds);
     }
 
+    // Collect your LOOT rewards for a given pool
     function harvest(uint256 _pid) external {
         UserInfo storage user;
         PoolInfo storage pool;
@@ -249,6 +203,7 @@ contract MasterChef is Ownable {
         }
     }
 
+    // Collect your LOOT rewards for all pools
     function harvestAll() external {
         uint256 length = poolInfo.length;
         uint256 calc;
@@ -308,6 +263,17 @@ contract MasterChef is Ownable {
 
     function poolLength() external view returns (uint256) {
         return poolInfo.length;
+    }
+
+    function tokenOfOwnerByIndex(uint256 _pid, address owner, uint256 index)
+        external
+        view
+        returns (uint256)
+    {
+        UserInfo storage user = userInfo[_pid][owner];
+
+        require(index < user.amount, "MasterChef: owner index out of bounds");
+        return user.ownedTokens[index];
     }
 
     // View function to see pending LOOTs on frontend.
