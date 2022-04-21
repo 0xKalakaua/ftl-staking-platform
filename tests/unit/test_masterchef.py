@@ -1,6 +1,6 @@
 import pytest
 import brownie
-from brownie import network, accounts, chain, MasterChef, Loot, MockERC721
+from brownie import network, accounts, chain, MasterChef, ArcaneRelic, MockERC721
 import time
 
 def print_tx(tx, tx_nb):
@@ -10,10 +10,10 @@ def print_tx(tx, tx_nb):
     print("-" * 80)
 
 @pytest.fixture
-def loot():
+def xrlc():
     dev = accounts[0]
-    loot = Loot.deploy({'from': dev})
-    return loot
+    xrlc = ArcaneRelic.deploy({'from': dev})
+    return xrlc
 
 @pytest.fixture
 def nft_1():
@@ -43,28 +43,28 @@ def nft_2():
     return nft_2
 
 @pytest.fixture
-def masterchef_and_loot(loot):
+def masterchef_and_xrlc(xrlc):
     dev = accounts[0]
-    loot_per_second = 7000000000000000 # 0.007 LOOT per second
+    xrlc_per_second = 7000000000000000 # 0.007 LOOT per second
     start_time = 1600000000
-    end_time = 1650000000
+    end_time = 1680000000
     masterchef = MasterChef.deploy(
-                                    loot,
-                                    loot_per_second,
+                                    xrlc,
+                                    xrlc_per_second,
                                     start_time,
                                     end_time,
                                     {'from': dev}
                  )
-    loot.transferOwnership(masterchef, {'from': dev})
-    return masterchef, loot
+    xrlc.transferOwnership(masterchef, {'from': dev})
+    return masterchef, xrlc
 
-def test_initial_state(nft_1, nft_2, masterchef_and_loot):
-    masterchef, loot = masterchef_and_loot
+def test_initial_state(nft_1, nft_2, masterchef_and_xrlc):
+    masterchef, xrlc = masterchef_and_xrlc
     dev = accounts[0]
     bob = accounts[1]
     alice = accounts[4]
 
-    assert loot.owner() == masterchef.address
+    assert xrlc.owner() == masterchef.address
     assert masterchef.owner() == dev.address
 
     assert nft_1.balanceOf(bob) == 3
@@ -74,8 +74,8 @@ def test_initial_state(nft_1, nft_2, masterchef_and_loot):
     assert nft_2.balanceOf(accounts[5]) == 2
     assert nft_2.balanceOf(accounts[6]) == 1
 
-def test_deposit(nft_1, nft_2, masterchef_and_loot):
-    masterchef, loot = masterchef_and_loot
+def test_deposit(nft_1, nft_2, masterchef_and_xrlc):
+    masterchef, xrlc = masterchef_and_xrlc
     dev = accounts[0]
     bob = accounts[1]
     alice = accounts[4]
@@ -83,7 +83,6 @@ def test_deposit(nft_1, nft_2, masterchef_and_loot):
     # add nft_1 pool
     tx_1 = masterchef.add(10, nft_1, {'from': dev})
     assert masterchef.poolInfo(0)["lastRewardTime"] == tx_1.timestamp
-    print(dir(tx_1))
     print_tx(tx_1, 1)
 
     # deposit without approval
@@ -112,22 +111,20 @@ def test_deposit(nft_1, nft_2, masterchef_and_loot):
     chain.sleep(10)
     tx_2 = masterchef.deposit(pid, [0], {'from': bob})
     print_tx(tx_2, 2)
-    acc_loot_per_share = masterchef.poolInfo(pid)["accLootPerShare"]
-    print(f"1: acc_loot_per_share: {acc_loot_per_share}")
+    acc_xrlc_per_share = masterchef.poolInfo(pid)["accXrlcPerShare"]
     assert nft_1.ownerOf(0) == masterchef.address
     assert masterchef.tokenOfOwnerByIndex(pid, bob, 0) == 0
     assert masterchef.userInfo(pid, bob.address)["amount"] == 1
-    # assert masterchef.userInfo(pid, bob.address)["rewardDebt"] == 1 * acc_loot_per_share / 1e12
     assert masterchef.userInfo(pid, bob.address)["rewardDebt"] == 0
-    assert loot.balanceOf(bob) == 0
-    assert loot.balanceOf(masterchef) == 0
+    assert xrlc.balanceOf(bob) == 0
+    assert xrlc.balanceOf(masterchef) == 0
 
     # add nft_2 pool
     chain.sleep(10)
     tx_3 = masterchef.add(10, nft_2, {'from': dev})
     print_tx(tx_3, 3)
     multiplier = tx_3.timestamp - tx_2.timestamp
-    assert loot.balanceOf(masterchef) == multiplier * masterchef.lootPerSecond()
+    assert xrlc.balanceOf(masterchef) == multiplier * masterchef.xrlcPerSecond()
 
     # deposit multiple tokens
     pid = 1
@@ -135,28 +132,25 @@ def test_deposit(nft_1, nft_2, masterchef_and_loot):
     print_tx(tx_4, 4)
     tx_5 = masterchef.deposit(pid, [3], {'from': accounts[5]})
 
-    acc_loot_per_share = masterchef.poolInfo(pid)["accLootPerShare"]
-    print(f"2: acc_loot_per_share: {acc_loot_per_share}")
+    acc_xrlc_per_share = masterchef.poolInfo(pid)["accXrlcPerShare"]
     assert nft_2.ownerOf(0) == masterchef.address
     assert nft_2.ownerOf(1) == masterchef.address
     assert nft_2.ownerOf(3) == masterchef.address
     assert masterchef.tokenOfOwnerByIndex(pid, alice, 0) == 1
     assert masterchef.tokenOfOwnerByIndex(pid, alice, 1) == 0
     assert masterchef.userInfo(pid, alice.address)["amount"] == 2
-    # assert masterchef.userInfo(pid, alice.address)["rewardDebt"] == 2 * acc_loot_per_share / 1e12
     assert masterchef.userInfo(pid, alice.address)["rewardDebt"] == 0
 
     assert masterchef.tokenOfOwnerByIndex(pid, accounts[5], 0) == 3
     assert masterchef.userInfo(pid, accounts[5].address)["amount"] == 1
-    assert masterchef.userInfo(pid, accounts[5].address)["rewardDebt"] == 1 * acc_loot_per_share / 1e12
+    assert masterchef.userInfo(pid, accounts[5].address)["rewardDebt"] == 1 * acc_xrlc_per_share / 1e12
 
     # deposit again after previous deposit
     pid = 0
-    acc_loot_per_share_before = masterchef.poolInfo(pid)["accLootPerShare"]
+    acc_xrlc_per_share_before = masterchef.poolInfo(pid)["accXrlcPerShare"]
     tx_6 = masterchef.deposit(pid, [2, 1], {'from': bob})
     multiplier = tx_6.timestamp - tx_2.timestamp
-    acc_loot_per_share = masterchef.poolInfo(pid)["accLootPerShare"]
-    print(f"3: acc_loot_per_share: {acc_loot_per_share}")
+    acc_xrlc_per_share = masterchef.poolInfo(pid)["accXrlcPerShare"]
     assert nft_1.ownerOf(0) == masterchef.address
     assert nft_1.ownerOf(1) == masterchef.address
     assert nft_1.ownerOf(2) == masterchef.address
@@ -164,22 +158,22 @@ def test_deposit(nft_1, nft_2, masterchef_and_loot):
     assert masterchef.tokenOfOwnerByIndex(pid, bob, 1) == 2
     assert masterchef.tokenOfOwnerByIndex(pid, bob, 2) == 1
     assert masterchef.userInfo(pid, bob.address)["amount"] == 3
-    assert masterchef.userInfo(pid, bob.address)["rewardDebt"] == 3 * acc_loot_per_share / 1e12
+    assert masterchef.userInfo(pid, bob.address)["rewardDebt"] == 3 * acc_xrlc_per_share / 1e12
 
 
     multiplier_1 = tx_3.timestamp - tx_2.timestamp
-    loot_reward_1 = multiplier_1 * masterchef.lootPerSecond()
-    acc_loot_per_share = loot_reward_1 * 1e12
+    xrlc_reward_1 = multiplier_1 * masterchef.xrlcPerSecond()
+    acc_xrlc_per_share = xrlc_reward_1 * 1e12
 
     multiplier_2 = tx_6.timestamp - tx_3.timestamp
-    loot_reward_2 = multiplier_2 * masterchef.lootPerSecond() * 0.5
-    acc_loot_per_share += loot_reward_2 * 1e12
-    assert loot.balanceOf(bob) == 1 * acc_loot_per_share / 1e12
-    assert loot.balanceOf(alice) == 0
-    assert loot.balanceOf(accounts[5]) == 0
+    xrlc_reward_2 = multiplier_2 * masterchef.xrlcPerSecond() * 0.5
+    acc_xrlc_per_share += xrlc_reward_2 * 1e12
+    assert xrlc.balanceOf(bob) == 1 * acc_xrlc_per_share / 1e12
+    assert xrlc.balanceOf(alice) == 0
+    assert xrlc.balanceOf(accounts[5]) == 0
 
-def test_withdraw(nft_1, nft_2, masterchef_and_loot):
-    masterchef, loot = masterchef_and_loot
+def test_withdraw(nft_1, nft_2, masterchef_and_xrlc):
+    masterchef, xrlc = masterchef_and_xrlc
     dev = accounts[0]
     bob = accounts[1]
 
@@ -201,10 +195,10 @@ def test_withdraw(nft_1, nft_2, masterchef_and_loot):
     assert nft_1.ownerOf(0) == bob.address
     assert nft_1.ownerOf(1) == bob.address
     assert nft_1.ownerOf(2) == bob.address
-    assert loot.balanceOf(bob) + 1 == (tx_3.timestamp - tx_2.timestamp) * masterchef.lootPerSecond()
+    assert xrlc.balanceOf(bob) + 1 == (tx_3.timestamp - tx_2.timestamp) * masterchef.xrlcPerSecond()
 
     # Partial withdrawal
-    prev_balance = loot.balanceOf(bob)
+    prev_balance = xrlc.balanceOf(bob)
     tx_4 = masterchef.deposit(pid, [2, 1], {'from': bob})
     chain.sleep(10)
     tx_5 = masterchef.withdraw(pid, [2], {'from': bob})
@@ -212,15 +206,15 @@ def test_withdraw(nft_1, nft_2, masterchef_and_loot):
     assert nft_1.ownerOf(1) == masterchef.address
     assert nft_1.ownerOf(2) == bob.address
     multiplier = tx_5.timestamp - tx_4.timestamp
-    assert loot.balanceOf(bob) - prev_balance == multiplier * masterchef.lootPerSecond()
+    assert xrlc.balanceOf(bob) - prev_balance == multiplier * masterchef.xrlcPerSecond()
 
     # Try withdrawing tokens I don't own
     with brownie.reverts("withdraw: not good"):
         tx_5 = masterchef.deposit(pid, [3], {'from': accounts[2]})
         masterchef.withdraw(pid, [1], {'from': accounts[2]})
 
-def test_harvest(nft_1, nft_2, masterchef_and_loot):
-    masterchef, loot = masterchef_and_loot
+def test_harvest(nft_1, nft_2, masterchef_and_xrlc):
+    masterchef, xrlc = masterchef_and_xrlc
     dev = accounts[0]
     bob = accounts[1]
     alice = accounts[4]
@@ -251,28 +245,28 @@ def test_harvest(nft_1, nft_2, masterchef_and_loot):
     chain.sleep(1000)
     chain.mine(1)
 
-    pending_1 = masterchef.pendingLoot(pid_1, bob) * 1e-18
+    pending_1 = masterchef.pendingXrlc(pid_1, bob) * 1e-18
     tx_7 = masterchef.harvest(pid_1, {'from': bob})
-    print(f"{round(loot.balanceOf(bob) * 1e-18, 2)} == {round(pending_1, 2)}")
-    assert round(loot.balanceOf(bob) * 1e-18, 2) == round(pending_1, 2)
+    print(f"{round(xrlc.balanceOf(bob) * 1e-18, 2)} == {round(pending_1, 2)}")
+    assert round(xrlc.balanceOf(bob) * 1e-18, 2) == round(pending_1, 2)
 
-    pending_2 = masterchef.pendingLoot(pid_1, accounts[2]) * 1e-18
+    pending_2 = masterchef.pendingXrlc(pid_1, accounts[2]) * 1e-18
     tx_8 = masterchef.harvest(pid_1, {'from': accounts[2]})
-    print(f"{round(loot.balanceOf(accounts[2]) * 1e-18, 2)} == {round(pending_2, 2)}")
-    assert round(loot.balanceOf(accounts[2]) * 1e-18, 2) == round(pending_2, 2)
+    print(f"{round(xrlc.balanceOf(accounts[2]) * 1e-18, 2)} == {round(pending_2, 2)}")
+    assert round(xrlc.balanceOf(accounts[2]) * 1e-18, 2) == round(pending_2, 2)
 
-    pending_3 = masterchef.pendingLoot(pid_2, alice) * 1e-18
+    pending_3 = masterchef.pendingXrlc(pid_2, alice) * 1e-18
     tx_9 = masterchef.harvest(pid_2, {'from': alice})
-    print(f"{round(loot.balanceOf(alice) * 1e-18, 2)} == {round(pending_3, 2)}")
-    assert round(loot.balanceOf(alice) * 1e-18, 2) == round(pending_3, 2)
+    print(f"{round(xrlc.balanceOf(alice) * 1e-18, 2)} == {round(pending_3, 2)}")
+    assert round(xrlc.balanceOf(alice) * 1e-18, 2) == round(pending_3, 2)
 
-    pending_4 = masterchef.pendingLoot(pid_2, accounts[5]) * 1e-18
+    pending_4 = masterchef.pendingXrlc(pid_2, accounts[5]) * 1e-18
     tx_10 = masterchef.harvest(pid_2, {'from': accounts[5]})
-    print(f"{round(loot.balanceOf(accounts[5]) * 1e-18, 2)} == {round(pending_4, 2)}")
-    assert round(loot.balanceOf(accounts[5]) * 1e-18, 2) == round(pending_4, 2)
+    print(f"{round(xrlc.balanceOf(accounts[5]) * 1e-18, 2)} == {round(pending_4, 2)}")
+    assert round(xrlc.balanceOf(accounts[5]) * 1e-18, 2) == round(pending_4, 2)
 
-def test_add_and_set(nft_1, nft_2, masterchef_and_loot):
-    masterchef, loot = masterchef_and_loot
+def test_add_and_set(nft_1, nft_2, masterchef_and_xrlc):
+    masterchef, xrlc = masterchef_and_xrlc
     dev = accounts[0]
     bob = accounts[1]
 
@@ -295,12 +289,12 @@ def test_add_and_set(nft_1, nft_2, masterchef_and_loot):
     assert masterchef.poolInfo(0)["nftToken"] == nft_1.address
     assert masterchef.poolInfo(0)["allocPoint"] == 20
     assert masterchef.poolInfo(0)["lastRewardTime"] == tx_2.timestamp
-    assert masterchef.poolInfo(0)["accLootPerShare"] == 0
+    assert masterchef.poolInfo(0)["accXrlcPerShare"] == 0
 
     assert masterchef.poolInfo(1)["nftToken"] == nft_2.address
     assert masterchef.poolInfo(1)["allocPoint"] == 10
     assert masterchef.poolInfo(1)["lastRewardTime"] == tx_2.timestamp
-    assert masterchef.poolInfo(1)["accLootPerShare"] == 0
+    assert masterchef.poolInfo(1)["accXrlcPerShare"] == 0
 
     # change the alloc_points
     tx_3 = masterchef.set(0, 5, {'from': dev})
@@ -309,14 +303,14 @@ def test_add_and_set(nft_1, nft_2, masterchef_and_loot):
     assert masterchef.totalAllocPoint() == 20
     assert masterchef.poolInfo(0)["allocPoint"] == 5
     assert masterchef.poolInfo(0)["lastRewardTime"] == tx_4.timestamp
-    assert masterchef.poolInfo(0)["accLootPerShare"] == 0
+    assert masterchef.poolInfo(0)["accXrlcPerShare"] == 0
 
     assert masterchef.poolInfo(1)["allocPoint"] == 15
     assert masterchef.poolInfo(1)["lastRewardTime"] == tx_4.timestamp
-    assert masterchef.poolInfo(1)["accLootPerShare"] == 0
+    assert masterchef.poolInfo(1)["accXrlcPerShare"] == 0
 
-def test_emergency_withdraw(nft_1, masterchef_and_loot):
-    masterchef, loot = masterchef_and_loot
+def test_emergency_withdraw(nft_1, masterchef_and_xrlc):
+    masterchef, xrlc = masterchef_and_xrlc
     dev = accounts[0]
     bob = accounts[1]
 
