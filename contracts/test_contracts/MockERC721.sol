@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.0;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -30,11 +30,17 @@ contract MockERC721 is AccessControlEnumerable, ERC721Enumerable, ERC721URIStora
         _setTokenURI(tokenId, _tokenURI);
     }
 
-    function mint(string memory _tokenURI) public onlyAdmin {
+    function mint(string memory _tokenURI) public {
         require(_tokenIdTracker.current() < max_supply, "MockERC721: all tokens have been minted");
         _safeMint(msg.sender, _tokenIdTracker.current());
         _setTokenURI(_tokenIdTracker.current(), _tokenURI);
         _tokenIdTracker.increment();
+    }
+
+    function mintMany(string memory _tokenURI, uint256 _amount) external {
+        for (uint256 i = 0; i < _amount; ++i) {
+            mint(_tokenURI);
+        }
     }
 
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
