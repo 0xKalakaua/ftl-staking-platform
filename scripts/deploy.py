@@ -6,13 +6,18 @@ def main():
     work = accounts.load("work")
     print(network.show_active())
     publish_source = True # Not supported on Testnet
-    loot = "0x4A25E282A663d5d60ee558064791e35572369947"
-    loot_per_second = 38600000000000000 # 0.0386 LOOT
-    start_time = 1643975400
-    end_time = 1643979000
+    xrlc = "0xE5586582E1a60E302a53e73E4FaDccAF868b459a"
+    xrlc_per_second = 28063165905631659 # 0.028063165905631659 XRLC
+
+    ### TESTING ONLY!! ### Change to ^^ before mainnet deployment
+    # xrlc_per_second = 2806316591000000000 # 2.806316591 XRLC
+    ### TESTING ONLY!! ###
+
+    start_time = 1650834000
+    end_time = 1682370000
     MasterChef.deploy(
-            loot,
-            loot_per_second,
+            xrlc,
+            xrlc_per_second,
             start_time,
             end_time,
             {"from": work},
