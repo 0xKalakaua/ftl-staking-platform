@@ -1,5 +1,5 @@
 # Fantom Lords Staking Platform
-NFT Staking Platform for the Fantom Lords. Supported collections can be staked and get rewarded in [$XRLC](https://ftmscan.com/token/0xE5586582E1a60E302a53e73E4FaDccAF868b459a) tokens.
+NFT Staking Platform for the [Fantom Lords Project](https://fantomlords.com/). Supported collections can be staked and get rewarded in [$XRLC](https://ftmscan.com/token/0xE5586582E1a60E302a53e73E4FaDccAF868b459a) tokens.
 
 ## Contract
 The contract is a fork of MasterChef by SushiSwap with 2 big changes made:
